@@ -4,9 +4,9 @@ Running a Fedora 33 container in a OpenShift 4.3.21 namespace called 'jenkins'.
 
 The problem ("there might not be enough IDs available in the namespace") seems to be due to the uidmap size provided by OpenShift.
 
-The old issue containers/libpod#1092 suggests it should be working, with the CAP_SETUID/CAP_SETGID being the most problematic issue (on OpenShift).
+The old issue https://github.com/containers/libpod/issues/1092 suggests that it has been working, with the CAP_SETUID/CAP_SETGID being the most problematic issue (on OpenShift). This is an issue from 2018 though.
 
-But my podman invocation never gets that far.
+My podman invocation never gets that far.
 
 Maybe because I need to configure the securitycontext differently? Or because it is a newer version of OpenShift?
 Or the new version of podman?
@@ -24,7 +24,7 @@ Build image and push it into the registry in the jenkins namespace to a IS named
     $ podman push $repo/jenkins/podman:latest
 
 
-Run the image with an example Deployment Config like:
+Run the image with a Deployment Config like this:
 
     apiVersion: apps.openshift.io/v1
     kind: DeploymentConfig
@@ -211,7 +211,7 @@ ERRO[0000] cannot find mappings for user : No subuid ranges found for user "" in
 Same problem when pulling image.
 
 
-Similar issue in containers/libpod#2542
+Similar issue in https://github.com/containers/libpod/issues/2542
 
 
 
