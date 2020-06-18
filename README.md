@@ -63,6 +63,7 @@ Linux podman-1-f9k4h 4.18.0-147.8.1.el8_1.x86_64 #1 SMP Wed Feb 26 03:08:15 UTC 
 $ cat /proc/sys/user/max_user_namespaces
 128361
 
+# I am aware of the missing setuid/setgid capabilities - see later
 $ capsh --print
 Current: = cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot+i
 Bounding set =cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot
@@ -75,9 +76,21 @@ Securebits: 00/0x0/1'b0
 uid=1000590000(???)
 gid=0(root)
 groups=1000590000(???)
+
+$ ls -l /usr/bin/newuidmap /usr/bin/newgidmap
+-rwxr-xr-x. 1 root root 48736 May 14 12:32 /usr/bin/newgidmap
+-rwxr-xr-x. 1 root root 44624 May 14 12:32 /usr/bin/newuidmap
+
+$ getfattr -d -m '.*' /usr/bin/newuidmap /usr/bin/newgidmap
+getfattr: Removing leading '/' from absolute path names
+# file: usr/bin/newuidmap
+security.selinux="system_u:object_r:container_file_t:s0:c19,c24"
+
+# file: usr/bin/newgidmap
+security.selinux="system_u:object_r:container_file_t:s0:c19,c24"
 ````
 
-Set subuid/subgid:
+Set subuid/subgid (or run ./init.sh):
 
 ````
 $ echo "${USER:-default}:x:$(id -u):0:${USER:-default} user:${HOME}:/sbin/nologin" >> /etc/passwd
@@ -211,7 +224,7 @@ ERRO[0000] cannot find mappings for user : No subuid ranges found for user "" in
 Same problem when pulling image.
 
 
-Similar issue in https://github.com/containers/libpod/issues/2542
+Similar problems reported in in https://github.com/containers/libpod/issues/2542, https://github.com/containers/libpod/issues/4921, and many others.
 
 
 

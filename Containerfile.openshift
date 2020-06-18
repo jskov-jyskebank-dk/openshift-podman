@@ -1,7 +1,11 @@
 FROM fedora:33
+MAINTAINER jskov@jyskebank.dk
 
-RUN dnf update -y \
- && dnf install -y buildah podman fuse-overlayfs shadow-utils
+LABEL os.updated="2020.06.18"
+
+RUN dnf update -y
+
+RUN dnf install -y attr buildah podman fuse-overlayfs shadow-utils
 
 RUN mkdir -p /home \
  && chmod a+rwx /home \
@@ -12,6 +16,8 @@ ENV HOME=/home
 ENV USER=builder
 
 WORKDIR $HOME
+
+ADD init.sh $HOME/
 
 # Just keep the container running, allowing "oc rsh" access
 CMD ["python3", "-m", "http.server"]
