@@ -1,6 +1,6 @@
 # openshift-podman
 
-Running a Fedora 33 container in a OpenShift 4.3.21 namespace called 'jenkins'.
+Running a Fedora 33 container in an OpenShift 4.3.21 namespace called 'jenkins'.
 
 The problem ("there might not be enough IDs available in the namespace") seems to be due to the uidmap size provided by OpenShift.
 
