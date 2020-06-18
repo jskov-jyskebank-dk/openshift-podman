@@ -77,6 +77,10 @@ uid=1000590000(???)
 gid=0(root)
 groups=1000590000(???)
 
+# newXidmap files
+# I am not sure of the selinux state - it is different from the output in issue #4921.
+# So I have also tried an image with chmod u+s on these files, and it made no difference
+
 $ ls -l /usr/bin/newuidmap /usr/bin/newgidmap
 -rwxr-xr-x. 1 root root 48736 May 14 12:32 /usr/bin/newgidmap
 -rwxr-xr-x. 1 root root 44624 May 14 12:32 /usr/bin/newuidmap
