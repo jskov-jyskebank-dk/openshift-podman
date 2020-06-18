@@ -40,6 +40,7 @@ Run the image with an example Deployment Config like:
           labels:
             app: podman
         spec:
+          #serviceAccount: podman-sa
           containers:
             - name: podman
               image: image-registry.openshift-image-registry.svc:5000/jenkins/podman
@@ -52,14 +53,29 @@ The container will run the python web server, and thus allowing interaction via 
 
 Base information:
 
-    $ id
-    uid=1000590000(1000590000) gid=0(root) groups=0(root),1000590000
+````
+$ id
+uid=1000590000(1000590000) gid=0(root) groups=0(root),1000590000
 
-    $ uname -a
-    Linux podman-1-f9k4h 4.18.0-147.8.1.el8_1.x86_64 #1 SMP Wed Feb 26 03:08:15 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
+$ uname -a
+Linux podman-1-f9k4h 4.18.0-147.8.1.el8_1.x86_64 #1 SMP Wed Feb 26 03:08:15 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
 
-    $ cat /proc/sys/user/max_user_namespaces
-    128361
+$ cat /proc/sys/user/max_user_namespaces
+128361
+
+$ capsh --print
+Current: = cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot+i
+Bounding set =cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot
+Ambient set =
+Securebits: 00/0x0/1'b0
+ secure-noroot: no (unlocked)
+ secure-no-suid-fixup: no (unlocked)
+ secure-keep-caps: no (unlocked)
+ secure-no-ambient-raise: no (unlocked)
+uid=1000590000(???)
+gid=0(root)
+groups=1000590000(???)
+````
 
 Set subuid/subgid:
 
@@ -197,3 +213,51 @@ Same problem when pulling image.
 
 Similar issue in containers/libpod#2542
 
+
+
+
+## Custom SecurityContext
+
+Many of the issues I have read through suggest that the problem may be caused by lack of CAP_SETUID/CAP_SETGID.
+
+So try again with a more lenient security context:
+
+Create Service Account 'podman-sa'
+
+Create a SCC configuration (see podman-scc.yaml):
+
+````
+$ oc get scc/restricted -o yaml > podman-scc.yaml
+# Edit file
+#  edit name: podman-scc
+#  edit priority: 10
+#  remove group match: - system:authenticated
+#  add user match: - system:serviceaccount:jenkins:podman-sa
+#  remove requiredDropCapabilities lines: SETUID, SETGID
+$ oc create -f podman-scc.yaml
+````
+
+Uncomment the SA line in the Deployment Config:
+
+  serviceAccount: podman-sa
+
+When the Pod restarts, it now runs with 'podman-scc' (see its metadata annotations in the YAML).
+
+And indeed:
+
+````
+capsh --print
+Current: = cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setgid,cap_setuid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot+i
+Bounding set =cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_setgid,cap_setuid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot
+Ambient set =
+Securebits: 00/0x0/1'b0
+ secure-noroot: no (unlocked)
+ secure-no-suid-fixup: no (unlocked)
+ secure-keep-caps: no (unlocked)
+ secure-no-ambient-raise: no (unlocked)
+uid=1000590000(???)
+gid=0(root)
+groups=1000590000(???)
+````
+
+Unfortunately I see no difference in output from Podman after this.
