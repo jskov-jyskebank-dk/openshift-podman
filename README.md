@@ -2,6 +2,18 @@
 
 Running a Fedora 33 container in a OpenShift 4.3.21 namespace called 'jenkins'.
 
+The problem ("there might not be enough IDs available in the namespace") seems to be due to the uidmap size provided by OpenShift.
+
+The old issue containers/libpod#1092 suggests it should be working, with the CAP_SETUID/CAP_SETGID being the most problematic issue (on OpenShift).
+
+But my podman invocation never gets that far.
+
+Maybe because I need to configure the securitycontext differently? Or because it is a newer version of OpenShift?
+Or the new version of podman?
+
+
+
+
 
 ## Build image to run on OpenShift
 
@@ -12,7 +24,7 @@ Build image and push it into the registry in the jenkins namespace to a IS named
     $ podman push $repo/jenkins/podman:latest
 
 
-Run the image with a Deployment Config like:
+Run the image with an example Deployment Config like:
 
     apiVersion: apps.openshift.io/v1
     kind: DeploymentConfig
@@ -36,7 +48,7 @@ Run the image with a Deployment Config like:
 
 The container will run the python web server, and thus allowing interaction via `oc rsh dc/podman` or the terminal.
 
-## Probe content
+## Explore in-container podman/buildah problems
 
 Base information:
 
@@ -46,24 +58,15 @@ Base information:
     $ uname -a
     Linux podman-1-f9k4h 4.18.0-147.8.1.el8_1.x86_64 #1 SMP Wed Feb 26 03:08:15 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
 
-
-Before setting subuid/subgid
-
-````
-$ podman info
-ERRO[0000] cannot find mappings for user : No subuid ranges found for user "" in /etc/subuid 
-host:
-  arch: amd64
-  buildahVersion: 1.15.0-dev
-  cgroupVersion: v1
-  ...
-````
+    $ cat /proc/sys/user/max_user_namespaces
+    128361
 
 Set subuid/subgid:
 
 ````
-$ echo "$(id -u):10000:65000" > /etc/subuid
-$ echo "$(id -u):10000:65000" > /etc/subgid
+$ echo "${USER:-default}:x:$(id -u):0:${USER:-default} user:${HOME}:/sbin/nologin" >> /etc/passwd
+$ echo "$(whoami):10000:65536" > /etc/subuid
+$ echo "$(whoami):10000:65536" > /etc/subgid
 ````
 
 Podman info:
@@ -83,7 +86,7 @@ host:
     distribution: fedora
     version: "33"
   eventLogger: file
-  hostname: podman-1-f9k4h
+  hostname: podman-1-plsbt
   idMappings:
     gidmap:
     - container_id: 0
@@ -95,7 +98,7 @@ host:
       size: 1
   kernel: 4.18.0-147.8.1.el8_1.x86_64
   linkmode: dynamic
-  memFree: 1967828992
+  memFree: 1986027520
   memTotal: 33726861312
   ociRuntime:
     name: runc
@@ -119,7 +122,7 @@ host:
       SLIRP_CONFIG_VERSION_MAX: 3
   swapFree: 0
   swapTotal: 0
-  uptime: 556h 49m 22.15s (Approximately 23.17 days)
+  uptime: 558h 25m 50.2s (Approximately 23.25 days)
 registries:
   search:
   - registry.fedoraproject.org
@@ -162,4 +165,35 @@ version:
   OsArch: linux/amd64
   Version: 2.0.0-dev
 ````
+
+Try to pull an image:
+
+````
+$ podman pull registry.fedoraproject.org/fedora
+Trying to pull registry.fedoraproject.org/fedora...
+Getting image source signatures
+Copying blob 1657ffead824 done  
+Copying config eb7134a03c done  
+Writing manifest to image destination
+Storing signatures
+  Error processing tar file(exit status 1): there might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
+Error: unable to pull registry.fedoraproject.org/fedora: Error committing the finished image: error adding layer with blob "sha256:1657ffead82459c68a65ceb4dc6f619b010b96d257f860d7db578ec2b06080e8": Error processing tar file(exit status 1): t
+here might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
+````
+
+Try to follow suggestion in https://github.com/containers/libpod/blob/master/troubleshooting.md#20-error-creating-libpod-runtime-there-might-not-be-enough-ids-available-in-the-namespace
+
+````
+$ podman unshare cat /proc/self/uid_map
+         0 1000590000          1
+$ podman system migrate
+$ podman unshare cat /proc/self/uid_map
+ERRO[0000] cannot find mappings for user : No subuid ranges found for user "" in /etc/subuid 
+         0 1000590000          1
+````
+
+Same problem when pulling image.
+
+
+Similar issue in containers/libpod#2542
 
