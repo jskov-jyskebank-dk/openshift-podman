@@ -1,5 +1,17 @@
 # openshift-podman
 
+We are trying to make it possible for the developer to provide a Dockerfile to be executed in a container on OpenShift. Output is an image they can deploy in their own namespace on OpenShift.
+
+We want this to be done safely, so no one - through malice or accident - can wreck the OpenShift platform.
+
+For this, we hope to get podman to run in its rootless mode.
+
+
+This repository documents the problems found with this approach - and hopefully the path to a solution.
+An issue has been filed on the issue, see https://github.com/containers/libpod/issues/6667
+
+## Current Status
+
 Running a Fedora 33 container in an OpenShift 4.3.21 namespace called 'jenkins'.
 
 The problem ("there might not be enough IDs available in the namespace") seems to be due to the uidmap size provided by OpenShift.
@@ -11,7 +23,7 @@ My podman invocation never gets that far.
 Maybe because I need to configure the securitycontext differently? Or because it is a newer version of OpenShift?
 Or the new version of podman?
 
-
+Daniel Walsh has provided some hints, that I will try to explore (see bottom of page).
 
 
 
@@ -278,3 +290,37 @@ groups=1000590000(???)
 ````
 
 Unfortunately I see no difference in output from Podman after this.
+
+
+
+
+
+## Try with SCC cloned from privileged
+
+Create podman-priv like podman-scc, but base it on the 'privileged' SCC.
+
+It does fail differently:
+
+````
+$ id
+uid=0(root) gid=0(root) groups=0(root)
+
+$ podman info             
+Error: 'overlay' is not supported over overlayfs, a mount_program is required: backing file system is unsupported for this graph driver
+````
+
+So there is something to dig into.
+
+I might do that later on, but a privileged container is not what we are looking for - we want to be able to let developers have control of a container to build images in it.
+
+In a pinch it might be possible to use, if the container can be started with a bigger userid range. If that is indeed the root cause of my troubles.
+If so, we'd have to run in a controlled image, that will drop all the dangerous capabilities, before passing control over to checked out user code.
+Pretty much like S2I, I would imagine.
+
+## Explore approach podman/buildah images
+
+As per https://github.com/containers/libpod/issues/6667#issuecomment-646056867
+
+Repository https://github.com/containers/libpod/tree/master/contrib/podmanimage
+
+...
