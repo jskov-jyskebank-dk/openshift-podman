@@ -452,7 +452,7 @@ a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
 
 ## Test creation of images
 
-
+Running an image fails:
 
 ````
 $ podman run -it docker.io/library/alpine /bin/sh -c "echo 'hello world!'"
@@ -461,4 +461,19 @@ Error: error mounting storage for container c967d9189c3ca165788ca68d069cafd3a3f6
 fuse-overlayfs: cannot mount: No such file or directory
 : exit status 1
 ````
+
+
+Fuse-overlayfs is installed
+  https://github.com/containers/libpod/blob/master/docs/tutorials/rootless_tutorial.md#ensure-fuse-overlayfs-is-installed
+
+Kernel is 4.18+:
+
+````
+$ uname -a
+Linux podman-3-27pvd 4.18.0-147.8.1.el8_1.x86_64 #1 SMP Wed Feb 26 03:08:15 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
+````
+
+Says https://developers.redhat.com/blog/2019/08/14/best-practices-for-running-buildah-in-a-container/:
+
+`Note that using Fuse requires people running the Buildah container to provide the /dev/fuse device`
 
