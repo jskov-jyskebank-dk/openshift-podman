@@ -25,7 +25,7 @@ Or the new version of podman?
 
 Daniel Walsh has provided some hints, that I will try to explore (see bottom of page).
 
-(stuck at the same place)
+(it works!)
 
 
 ## Build image to run on OpenShift
@@ -324,11 +324,29 @@ As per https://github.com/containers/libpod/issues/6667#issuecomment-646056867
 
 Repository https://github.com/containers/libpod/tree/master/contrib/podmanimage
 
-...
+### Workstation
 
-Followed `Sample Usage` instructions in https://github.com/containers/libpod/tree/master/contrib/podmanimage on localhost without problems.
+Followed `Sample Usage` instructions in https://github.com/containers/libpod/tree/master/contrib/podmanimage on *workstation* without problems.
 
-This is from within the outer `podmanctr` container:
+
+Step 1: Start `podmanctr`:
+
+````
+$ podman pull docker://quay.io/podman/stable:latest
+
+$ podman run --privileged stable podman version
+Version:            1.9.1
+RemoteAPI Version:  1  
+Go Version:         go1.14.2                  
+OS/Arch:            linux/amd64
+
+$ podman run --detach --name=podmanctr --net=host --security-opt label=disable --security-opt seccomp=unconfined --device /dev/fuse:rw -v /opt/data/mycontainer:/var/lib/containers:Z --privileged  stable sh  -c 'while true ;do sleep 10
+0000 ; done'                             
+35f34d754cccd3c4486295df5bcc67808503b484eb62f310544fa56cea8d114c
+$ podman exec -it podmanctr /bin/sh
+````
+
+Step 2: Inside `podmanctr`:
 
 ````
 sh-5.0# podman pull alpine
@@ -350,8 +368,15 @@ REPOSITORY                 TAG      IMAGE ID       CREATED       SIZE
 docker.io/library/alpine   latest   a24bb4013296   2 weeks ago   5.85 MB
 ````
 
+All is good.
 
-But on OpenShift it ends with the same problem as before (because the podman image is based on Fedora with multiple users):
+### OpenShift
+
+Two paths to take.
+
+#### Start podmanctr like on workstation
+
+This from my own plain Fedora 33 container, with SCC restricted+CAP_SETUID+CAP_SETGID.
 
 ````
 $ podman pull docker://quay.io/podman/stable:latest
@@ -368,4 +393,39 @@ Storing signatures
   Error processing tar file(exit status 1): there might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
 Error: error pulling image "docker://quay.io/podman/stable:latest": unable to pull docker://quay.io/podman/stable:latest: unable to pull image: Error committing the finished image: error adding layer with blob "sha256:03c837e31708e15035b6c6f9a7a4b78b64f6bc10e6daec01684c077655becf95": Error processing tar file(exit status 1): there might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
 ````
+
+So this is (not surprisingly) back to the initial problem; the `podman` image is based on Fedora with multiple UIDs.
+
+
+#### Run `podman` image on OpenShift
+
+Use the stable `podman` image as a base for the container run on OpenShift, built with:
+
+  $ podman build -t $repo/jenkins/podman:latest -f Containerfile.podman-stable
+
+Then spun up on OpenShift:
+
+````
+$ ./init.sh 
+
+$ podman version
+Version:            1.9.1
+RemoteAPI Version:  1
+Go Version:         go1.14.2
+OS/Arch:            linux/amd64
+
+$ podman pull docker.io/library/alpine
+Trying to pull docker.io/library/alpine...
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
+````
+
+It works when not updating the image!
+
+
+
 
