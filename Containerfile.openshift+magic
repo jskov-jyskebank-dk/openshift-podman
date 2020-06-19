@@ -1,0 +1,36 @@
+FROM fedora:33
+MAINTAINER jskov@jyskebank.dk
+
+
+LABEL os.updated="2020.06.19"
+
+#----
+# Parts from https://github.com/containers/libpod/blob/master/contrib/podmanimage/stable/Dockerfile
+
+RUN useradd podman; yum -y update; yum -y reinstall shadow-utils; yum -y install podman fuse-overlayfs --exclude container-selinux; rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+ADD https://raw.githubusercontent.com/containers/libpod/master/contrib/podmanimage/stable/containers.conf /etc/containers/
+
+RUN chmod 644 /etc/containers/containers.conf; sed -i -e 's|^#mount_program|mount_program|g' -e '/additionalimage.*/a "/var/lib/shared",' /etc/containers/storage.conf
+RUN mkdir -p /var/lib/shared/overlay-images /var/lib/shared/overlay-layers; touch /var/lib/shared/overlay-images/images.lock; touch /var/lib/shared/overlay-layers/layers.lock
+
+ENV _CONTAINERS_USERNS_CONFIGURED=""
+
+#
+#----
+
+
+RUN mkdir -p /home \
+ && chmod a+rwx /home \
+ && touch /etc/subgid /etc/subuid \
+ && chmod g=u /etc/subgid /etc/subuid /etc/passwd
+
+ENV HOME=/home
+ENV USER=builder
+
+WORKDIR $HOME
+
+ADD init.sh $HOME/
+
+# Just keep the container running, allowing "oc rsh" access
+CMD ["python3", "-m", "http.server"]

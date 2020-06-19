@@ -25,8 +25,8 @@ Or the new version of podman?
 
 Daniel Walsh has provided some hints, that I will try to explore (see bottom of page).
 
-
-*IT WORKS*
+Pulling images: *WORKS*
+Running commands in an image: exploring...
 
 
 ## Build image to run on OpenShift
@@ -448,3 +448,16 @@ Writing manifest to image destination
 Storing signatures
 a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
 ````
+
+## Test creation of images
+
+
+
+````
+$ podman run -it docker.io/library/alpine /bin/sh -c "echo 'hello world!'"
+ERRO[0000] error unmounting /home/.local/share/containers/storage/overlay/a8e3377a8f75d187a906823f1d8da6bfe5d37771b2d0a4354444f86f722a854c/merged: invalid argument 
+Error: error mounting storage for container c967d9189c3ca165788ca68d069cafd3a3f60fd95eb86c6726c6ef3215a20918: error creating overlay mount to /home/.local/share/containers/storage/overlay/a8e3377a8f75d187a906823f1d8da6bfe5d37771b2d0a4354444f86f722a854c/merged: using mount program /usr/bin/fuse-overlayfs: fuse: device not found, try 'modprobe fuse' first
+fuse-overlayfs: cannot mount: No such file or directory
+: exit status 1
+````
+
