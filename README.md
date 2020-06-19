@@ -25,6 +25,7 @@ Or the new version of podman?
 
 Daniel Walsh has provided some hints, that I will try to explore (see bottom of page).
 
+(stuck at the same place)
 
 
 ## Build image to run on OpenShift
@@ -324,3 +325,47 @@ As per https://github.com/containers/libpod/issues/6667#issuecomment-646056867
 Repository https://github.com/containers/libpod/tree/master/contrib/podmanimage
 
 ...
+
+Followed `Sample Usage` instructions in https://github.com/containers/libpod/tree/master/contrib/podmanimage on localhost without problems.
+
+This is from within the outer `podmanctr` container:
+
+````
+sh-5.0# podman pull alpine
+Trying to pull registry.fedoraproject.org/alpine...
+  invalid status code from registry 503 (Service Unavailable)
+Trying to pull registry.access.redhat.com/alpine...
+  name unknown: Repo not found
+Trying to pull registry.centos.org/alpine...
+  manifest unknown: manifest unknown
+Trying to pull docker.io/library/alpine...
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
+sh-5.0# podman images
+REPOSITORY                 TAG      IMAGE ID       CREATED       SIZE
+docker.io/library/alpine   latest   a24bb4013296   2 weeks ago   5.85 MB
+````
+
+
+But on OpenShift it ends with the same problem as before (because the podman image is based on Fedora with multiple users):
+
+````
+$ podman pull docker://quay.io/podman/stable:latest
+Trying to pull docker://quay.io/podman/stable:latest...
+Getting image source signatures
+Copying blob de816b60fe1b done  
+Copying blob 608bed8e5c80 done  
+Copying blob e9bc339e0a06 done  
+Copying blob 910e4eb8e476 done  
+Copying blob 03c837e31708 done  
+Copying config baae4c0193 done  
+Writing manifest to image destination
+Storing signatures
+  Error processing tar file(exit status 1): there might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
+Error: error pulling image "docker://quay.io/podman/stable:latest": unable to pull docker://quay.io/podman/stable:latest: unable to pull image: Error committing the finished image: error adding layer with blob "sha256:03c837e31708e15035b6c6f9a7a4b78b64f6bc10e6daec01684c077655becf95": Error processing tar file(exit status 1): there might not be enough IDs available in the namespace (requested 0:22 for /run/utmp): lchown /run/utmp: invalid argument
+````
+
