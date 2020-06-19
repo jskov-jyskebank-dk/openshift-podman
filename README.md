@@ -25,7 +25,8 @@ Or the new version of podman?
 
 Daniel Walsh has provided some hints, that I will try to explore (see bottom of page).
 
-(it works!)
+
+*IT WORKS*
 
 
 ## Build image to run on OpenShift
@@ -424,8 +425,26 @@ Storing signatures
 a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
 ````
 
-It works when not updating the image!
+It works!
 
 
+Update the image (with exclude of container-selinux), and it keeps working:
 
+````
+$ ./init.sh 
 
+$ podman version
+Version:            1.9.3
+RemoteAPI Version:  1
+Go Version:         go1.14.2
+OS/Arch:            linux/amd64
+
+$ podman pull docker.io/library/alpine
+Trying to pull docker.io/library/alpine...
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e
+````
