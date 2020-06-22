@@ -477,3 +477,20 @@ Says https://developers.redhat.com/blog/2019/08/14/best-practices-for-running-bu
 
 `Note that using Fuse requires people running the Buildah container to provide the /dev/fuse device`
 
+---
+
+### /dev/fuse
+
+Podman SCC changed to include hostPath mounting.
+
+Deployment config (see dc.yaml) changed to include hostPath mounting of `/dev/fuse`.
+
+Output is now:
+
+````
+$ podman run -it docker.io/library/alpine /bin/sh -c "echo 'hello world!'"
+ERRO[0000] error unmounting /home/.local/share/containers/storage/overlay/a3f03decfadf8f4d9aa4d7b140b804cc06ffd10b4a975ea5dd65bab75ebfb96b/merged: invalid argument 
+Error: error mounting storage for container 7c00a14f47d100702aaf24e9e6176b87a06e99e9e0aa3c95f1f124fbeb0e806a: error creating overlay mount to /home/.local/share/containers/storage/overlay/a3f03decfadf8f4d9aa4d7b140b804cc06ffd10b4a975ea5dd65bab75ebfb96b/merged: using mount program /usr/bin/fuse-overlayfs: fuse: failed to open /dev/fuse: Operation not permitted
+fuse-overlayfs: cannot mount: Operation not permitted
+````
+

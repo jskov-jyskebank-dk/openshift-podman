@@ -1,0 +1,27 @@
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  name: podman
+  namespace: jenkins
+spec:
+  selector:
+    app: podman
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: podman
+    spec:
+      serviceAccount: podman-sa
+      containers:
+        - name: podman
+          image: image-registry.openshift-image-registry.svc:5000/jenkins/podman
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: devfuse
+              mountPath: /dev/fuse
+      volumes:
+        - name: devfuse
+          hostPath:
+            path: /dev/fuse

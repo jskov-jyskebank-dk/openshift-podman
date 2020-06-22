@@ -1,4 +1,4 @@
-allowHostDirVolumePlugin: false
+allowHostDirVolumePlugin: true
 allowHostIPC: false
 allowHostNetwork: false
 allowHostPID: false
@@ -39,3 +39,4 @@ volumes:
 - persistentVolumeClaim
 - projected
 - secret
+- hostPath
