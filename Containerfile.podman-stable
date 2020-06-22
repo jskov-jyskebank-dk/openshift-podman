@@ -1,8 +1,8 @@
 FROM quay.io/podman/stable:latest
 MAINTAINER jskov@jyskebank.dk
 
-#LABEL os.updated="2020.06.19"
-#RUN dnf update -y --exclude container-selinux
+LABEL os.updated="2020.06.22"
+RUN dnf update -y --exclude container-selinux
 
 RUN mkdir -p /home \
  && chmod a+rwx /home \
