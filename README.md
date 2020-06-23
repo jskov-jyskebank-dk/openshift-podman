@@ -1007,6 +1007,6 @@ DEBU[0000] ExitCode msg: "mount `proc` to '/home/.local/share/containers/storage
 ERRO[0000] mount `proc` to '/home/.local/share/containers/storage/vfs/dir/3d651c0bc695dbdbac73b64a34431110b4a0eb2f465bd42330744a5a534c35b8/proc': Permission denied: OCI runtime permission denied error 
 ````
 
-NOTE: Same problem when updating image (to podman 1.9.3 and whatever else follows)
+NOTE: Same problem when dnf-updating the fedora image (which includes podman 1.9.3)
 
 
