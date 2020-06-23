@@ -893,6 +893,12 @@ But running the command still fails:
 $ id
 uid=1000590000(builder) gid=0(root) groups=0(root),1000590000
 
+$ podman --storage-driver=vfs version                                                                     
+Version:            1.9.1
+RemoteAPI Version:  1
+Go Version:         go1.14.2
+OS/Arch:            linux/amd64
+
 $ podman --storage-driver=vfs --log-level debug run -it docker.io/library/alpine /bin/sh -c "echo 'hello'"
 DEBU[0000] Ignoring lipod.conf EventsLogger setting "journald". Use containers.conf if you want to change this setting and remove libpod.conf files. DEBU[0000] Reading configuration file "/usr/share/containers/containers.conf" DEBU[0000] Merged system config "/usr/share/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  private k8s-file -1 slirp4netns false 2048 private /usr/share/containers/seccomp.json 65536k private host 65536} {false systemd [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000590000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 
 /usr/libexec/podman/catatonit shm   false 2048 runc map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr
@@ -1000,3 +1006,7 @@ DEBU[0000] unmounted container "fea970dd476588d3b2fa34673674edcc00916da44662caa4
 DEBU[0000] ExitCode msg: "mount `proc` to '/home/.local/share/containers/storage/vfs/dir/3d651c0bc695dbdbac73b64a34431110b4a0eb2f465bd42330744a5a534c35b8/proc': permission denied: oci runtime permission denied error" 
 ERRO[0000] mount `proc` to '/home/.local/share/containers/storage/vfs/dir/3d651c0bc695dbdbac73b64a34431110b4a0eb2f465bd42330744a5a534c35b8/proc': Permission denied: OCI runtime permission denied error 
 ````
+
+NOTE: Same problem when updating image (to podman 1.9.3 and whatever else follows)
+
+
