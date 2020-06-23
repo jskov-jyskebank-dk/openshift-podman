@@ -4,17 +4,20 @@ MAINTAINER jskov@jyskebank.dk
 LABEL os.updated="2020.06.22"
 RUN dnf update -y --exclude container-selinux
 
+
 RUN mkdir -p /home \
  && chmod a+rwx /home \
  && touch /etc/subgid /etc/subuid \
  && chmod g=u /etc/subgid /etc/subuid /etc/passwd
 
 ENV HOME=/home
-ENV USER=builder
+ENV USER=root
+
+USER $USER
 
 WORKDIR $HOME
 
-ADD init.sh $HOME/
+ADD init.sh Containerfile.openshift $HOME/
 
 # Just keep the container running, allowing "oc rsh" access
 CMD ["python3", "-m", "http.server"]

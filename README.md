@@ -615,3 +615,135 @@ ERRO[0000] error mounting storage for container 9ce45faf7719310972823ceeb3afaa4b
 fuse-overlayfs: cannot mount: Operation not permitted
 : exit status 1 
 ````
+
+
+### Works with privileged
+
+Changing the SCC to allowPrivilegedContainer=true and the Deployment Config:
+
+````
+securityContext:
+  privileged: true
+````
+
+it works:
+
+````
+$ podman run -it --device /dev/fuse:rw docker.io/library/alpine /bin/sh -c "echo 'hello'"
+Trying to pull docker.io/library/alpine...
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+hello
+````
+
+#### Try to find out why /dev/fuse causes trouble
+
+*** With privileged state ***
+
+````
+$ ls -l /dev/fuse
+crw-rw-rw-. 1 root root 10, 229 Jun 22 11:11 /dev/fuse
+
+$ id
+uid=1000590000(builder) gid=0(root) groups=0(root),1000590000
+
+$ podman info
+...
+  runRoot: /run/user/1000590000/containers
+...
+
+$ ls -lZ /dev/fuse
+crw-rw-rw-. 1 root root system_u:object_r:fuse_device_t:s0 10, 229 Jun 22 11:11 /dev/fuse
+
+$ stat /dev/fuse
+  File: /dev/fuse
+  Size: 0               Blocks: 0          IO Block: 4096   character special file
+Device: 6h/6d   Inode: 13402       Links: 1     Device type: a,e5
+Access: (0666/crw-rw-rw-)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2020-06-22 11:11:56.260120420 +0000
+Modify: 2020-06-22 11:11:56.260120420 +0000
+Change: 2020-06-22 11:11:56.260120420 +0000
+ Birth: -
+
+
+````
+
+
+*** Without privileged state ***
+
+All the same as privileged, except that `podman info` shows runRoot at another location.
+
+````
+$ ls -l /dev/fuse
+crw-rw-rw-. 1 root root 10, 229 Jun 22 11:03 /dev/fuse
+
+$ id
+uid=1000590000(builder) gid=0(root) groups=0(root),1000590000
+
+$ podman info
+...
+  runRoot: /tmp/run-1000590000/containers
+...
+
+sh-5.0$ ls -lZ /dev/fuse
+crw-rw-rw-. 1 root root system_u:object_r:fuse_device_t:s0 10, 229 Jun 22 11:11 /dev/fuse
+
+$ stat /dev/fuse
+  File: /dev/fuse
+  Size: 0               Blocks: 0          IO Block: 4096   character special file
+Device: 6h/6d   Inode: 13402       Links: 1     Device type: a,e5
+Access: (0666/crw-rw-rw-)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2020-06-22 11:11:56.260120420 +0000
+Modify: 2020-06-22 11:11:56.260120420 +0000
+Change: 2020-06-22 11:11:56.260120420 +0000
+ Birth: -
+````
+
+
+
+## Run as root
+
+Create new `podman-anyuid.yaml` cloned from `anyuid` SCC, adding the hostPath element, and setting priority 20.
+
+Load it:
+
+````
+$ oc create -f podman-anyid.yaml
+````
+
+Restarting the pod, and it now runs with `openshift.io/scc: podman-anyuid`.
+
+````
+sh-5.0# id
+uid=0(root) gid=0(root) groups=0(root)
+
+sh-5.0# podman --log-level debug info
+DEBU[0000] Found deprecated file /usr/share/containers/libpod.conf, please remove. Use /etc/containers/containers.conf to override defaults. 
+DEBU[0000] Reading configuration file "/usr/share/containers/libpod.conf" 
+DEBU[0000] Ignoring lipod.conf EventsLogger setting "journald". Use containers.conf if you want to change this setting and remove libpod.conf files. 
+DEBU[0000] Reading configuration file "/usr/share/containers/containers.conf" 
+DEBU[0000] Merged system config "/usr/share/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  private k8s-file -1 bridge false 2048 private /usr/share/containers/seccomp.json 65536k private host 65536} {false systemd [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /var/run/libpod/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatonit shm   false 2048 crun map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] kata-fc:[/usr/bin/kata-fc] kata-qemu:[/usr/bin/kata-qemu] kata-runtime:[/usr/bin/kata-runtime] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /var/lib/containers/storage/libpod 10 /var/run/libpod /var/lib/containers/storage/volumes} {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Reading configuration file "/etc/containers/containers.conf" 
+DEBU[0000] Merged system config "/etc/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  host k8s-file -1 host false 2048 private /usr/share/containers/seccomp.json 65536k host host 65536} {false cgroupfs [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /var/run/libpod/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatonit shm   false 2048 crun map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] kata-fc:[/usr/bin/kata-fc] kata-qemu:[/usr/bin/kata-qemu] kata-runtime:[/usr/bin/kata-runtime] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /var/lib/containers/storage/libpod 10 /var/run/libpod /var/lib/containers/storage/volumes} {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Using conmon: "/usr/bin/conmon"              
+DEBU[0000] Initializing boltdb state at /var/lib/containers/storage/libpod/bolt_state.db 
+DEBU[0000] Using graph driver overlay                   
+DEBU[0000] Using graph root /var/lib/containers/storage 
+DEBU[0000] Using run root /var/run/containers/storage   
+DEBU[0000] Using static dir /var/lib/containers/storage/libpod 
+DEBU[0000] Using tmp dir /var/run/libpod                
+DEBU[0000] Using volume path /var/lib/containers/storage/volumes 
+DEBU[0000] Set libpod namespace to ""                   
+DEBU[0000] [graphdriver] trying provided driver "overlay" 
+DEBU[0000] overlay: imagestore=/var/lib/shared          
+DEBU[0000] overlay: mount_program=/usr/bin/fuse-overlayfs 
+ERRO[0000] could not get runtime: mount /var/lib/containers/storage/overlay:/var/lib/containers/storage/overlay, flags: 0x1000: operation not permitted
+
+sh-5.0# ls -l /var/lib/containers/storage/overlay
+total 0
+drwx------. 2 root root 6 Jun 23 06:50 l
+````
+
