@@ -706,6 +706,13 @@ Change: 2020-06-22 11:11:56.260120420 +0000
 
 ## Run as root
 
+Make sure DeployConfig has:
+
+````
+securityContext:
+  privileged: false
+````
+
 Create new `podman-anyuid-scc.yaml` cloned from `anyuid` SCC, adding the hostPath element, and setting priority 20.
 
 Load it:
@@ -713,6 +720,8 @@ Load it:
 ````
 $ oc create -f podman-anyid-scc.yaml
 ````
+
+
 
 Restarting the pod, and it now runs with `openshift.io/scc: podman-anyuid`.
 
@@ -1009,3 +1018,83 @@ ERRO[0000] mount `proc` to '/home/.local/share/containers/storage/vfs/dir/3d651c
 
 NOTE: Same problem when dnf-updating the fedora image (which includes podman 1.9.3)
 
+
+### chroot
+
+Pre image by appending (to `Containerfile.podman-stable`):
+
+````
+RUN dnf install buildah -y --exclude container-selinux
+````
+
+Run resulting image under podman-anyuid as root:
+
+
+````
+sh-5.0# echo podman:10000:65536 > /etc/subuid
+sh-5.0# echo podman:10000:65536 > /etc/subgid
+sh-5.0# su - podman
+
+[podman@podman-8-c5qp7 ~]$ buildah version
+Version:         1.14.9
+Go Version:      go1.14.2
+Image Spec:      1.0.1-dev
+Runtime Spec:    1.0.1-dev
+CNI Spec:        0.4.0
+libcni Version:  
+image Version:   5.4.3
+Git Commit:      
+Built:           Thu Jan  1 00:00:00 1970
+OS/Arch:         linux/amd64
+
+[podman@podman-8-c5qp7 ~]$ buildah from docker.io/library/alpine
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+alpine-working-container
+
+[podman@podman-8-c5qp7 ~]$ buildah --log-level debug run --isolation chroot alpine-working-container ls /
+DEBU running [buildah-in-a-user-namespace --log-level debug run --isolation chroot alpine-working-container ls /] with environment [SHELL=/bin/bash HISTCONTROL=ignoredups HISTSIZE=1000 HOSTNAME= PWD=/home/podman LOGNAME=podman HOME=/home/pod
+man LANG=C.UTF-8 LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=01;37;41:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31
+:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz
+=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=0
+1;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.
+pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:
+*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=01;36:*.au=01;36:*.flac=01;36:*.m4a=01;36:*.mid=01;36:*.midi=01;36:*.mka=01;36:*.mp3=01;36:*.
+mpc=01;36:*.ogg=01;36:*.ra=01;36:*.wav=01;36:*.oga=01;36:*.opus=01;36:*.spx=01;36:*.xspf=01;36: BUILDAH_ISOLATION=chroot TERM=xterm USER=podman SHLVL=1 PATH=/home/podman/.local/bin:/home/podman/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/us
+r/sbin MAIL=/var/spool/mail/podman _=/usr/bin/buildah TMPDIR=/var/tmp _CONTAINERS_USERNS_CONFIGURED=1], UID map [{ContainerID:0 HostID:1000 Size:1} {ContainerID:1 HostID:10000 Size:65536}], and GID map [{ContainerID:0 HostID:1000 Size:1} {Co
+ntainerID:1 HostID:10000 Size:65536}] 
+DEBU [graphdriver] trying provided driver "overlay" 
+DEBU overlay: mount_program=/usr/bin/fuse-overlayfs 
+DEBU backingFs=overlayfs, projectQuotaSupported=false, useNativeDiff=false, usingMetacopy=false 
+DEBU using "/var/tmp/buildah994730804" to hold bundle data 
+DEBU Resources: &buildah.CommonBuildOptions{AddHost:[]string{}, CgroupParent:"", CPUPeriod:0x0, CPUQuota:0, CPUShares:0x0, CPUSetCPUs:"", CPUSetMems:"", HTTPProxy:true, Memory:0, DNSSearch:[]string{}, DNSServers:[]string{}, DNSOptions:[]stri
+ng{}, MemorySwap:0, LabelOpts:[]string(nil), SeccompProfilePath:"/usr/share/containers/seccomp.json", ApparmorProfile:"", ShmSize:"65536k", Ulimit:[]string{"nproc=1048576:1048576"}, Volumes:[]string{}} 
+DEBU overlay: mount_data=lowerdir=/home/podman/.local/share/containers/storage/overlay/l/VUBMQEZB7D4VJWLROCODAIR24F,upperdir=/home/podman/.local/share/containers/storage/overlay/1ca1feda8f3a76261656185490fb0faeb6a192fa8a04ac9a4e12ef0082e0ec2
+8/diff,workdir=/home/podman/.local/share/containers/storage/overlay/1ca1feda8f3a76261656185490fb0faeb6a192fa8a04ac9a4e12ef0082e0ec28/work 
+ERRO error unmounting /home/podman/.local/share/containers/storage/overlay/1ca1feda8f3a76261656185490fb0faeb6a192fa8a04ac9a4e12ef0082e0ec28/merged: invalid argument 
+DEBU error running [ls /] in container "alpine-working-container": error mounting container "8563a43b0e4254fa3003b5fafc79c0f6371ca7bc89f3ffb8d61bcb314d80d05b": error mounting build container "8563a43b0e4254fa3003b5fafc79c0f6371ca7bc89f3ffb8d
+61bcb314d80d05b": error creating overlay mount to /home/podman/.local/share/containers/storage/overlay/1ca1feda8f3a76261656185490fb0faeb6a192fa8a04ac9a4e12ef0082e0ec28/merged: using mount program /usr/bin/fuse-overlayfs: fuse: failed to open
+ /dev/fuse: Operation not permitted
+fuse-overlayfs: cannot mount: Operation not permitted
+: exit status 1 
+error mounting container "8563a43b0e4254fa3003b5fafc79c0f6371ca7bc89f3ffb8d61bcb314d80d05b": error mounting build container "8563a43b0e4254fa3003b5fafc79c0f6371ca7bc89f3ffb8d61bcb314d80d05b": error creating overlay mount to /home/podman/.loc
+al/share/containers/storage/overlay/1ca1feda8f3a76261656185490fb0faeb6a192fa8a04ac9a4e12ef0082e0ec28/merged: using mount program /usr/bin/fuse-overlayfs: fuse: failed to open /dev/fuse: Operation not permitted
+fuse-overlayfs: cannot mount: Operation not permitted
+: exit status 1
+ERRO exit status 1                                
+
+[podman@podman-8-c5qp7 ~]$ ls -lZ /dev/fuse
+crw-rw-rw-. 1 root root system_u:object_r:fuse_device_t:s0 10, 229 Jun 22 11:03 /dev/fuse
+````
+
+Podman also fails as before:
+
+````
+podman~$ export BUILDAH_ISOLATION=chroot
+podman~$ podman pull docker.io/library/alpine
+podman~$ podman --log-level debug run -it docker.io/library/alpine /bin/sh -c "echo 'hello'"
+*** BOOM ***
+````
