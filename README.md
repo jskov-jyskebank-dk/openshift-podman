@@ -300,7 +300,7 @@ Unfortunately I see no difference in output from Podman after this.
 
 ## Try with SCC cloned from privileged
 
-Create podman-priv like podman-scc, but base it on the 'privileged' SCC.
+Create podman-priv like podman-scc, but base it on the 'privileged' SCC (see `podman-priv-scc.yaml`).
 
 It does fail differently:
 
@@ -706,12 +706,12 @@ Change: 2020-06-22 11:11:56.260120420 +0000
 
 ## Run as root
 
-Create new `podman-anyuid.yaml` cloned from `anyuid` SCC, adding the hostPath element, and setting priority 20.
+Create new `podman-anyuid-scc.yaml` cloned from `anyuid` SCC, adding the hostPath element, and setting priority 20.
 
 Load it:
 
 ````
-$ oc create -f podman-anyid.yaml
+$ oc create -f podman-anyid-scc.yaml
 ````
 
 Restarting the pod, and it now runs with `openshift.io/scc: podman-anyuid`.
@@ -1008,5 +1008,4 @@ ERRO[0000] mount `proc` to '/home/.local/share/containers/storage/vfs/dir/3d651c
 ````
 
 NOTE: Same problem when dnf-updating the fedora image (which includes podman 1.9.3)
-
 
