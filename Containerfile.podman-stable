@@ -4,6 +4,8 @@ MAINTAINER jskov@jyskebank.dk
 #LABEL os.updated="2020.06.22"
 #RUN dnf update -y --exclude container-selinux
 
+RUN dnf install buildah -y --exclude container-selinux
+
 RUN mkdir -p /home \
  && chmod a+rwx /home \
  && touch /etc/subgid /etc/subuid \

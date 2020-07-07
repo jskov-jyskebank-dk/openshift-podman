@@ -27,7 +27,9 @@ Daniel Walsh has provided some hints, that I will try to explore (see bottom of 
 
 Pulling images: *WORKS*
 
-Running commands in an image: exploring...
+Building a Containerfile using Buildah: *WORKS*
+
+Building a Containerfile using Podman: *FAILS*
 
 
 ## Build image to run on OpenShift
@@ -1097,4 +1099,219 @@ podman~$ export BUILDAH_ISOLATION=chroot
 podman~$ podman pull docker.io/library/alpine
 podman~$ podman --log-level debug run -it docker.io/library/alpine /bin/sh -c "echo 'hello'"
 *** BOOM ***
+````
+
+
+### buildah chroot and VFS
+
+Stay with VFS
+
+````
+sh-5.0# echo podman:10000:65536 > /etc/subuid
+sh-5.0# echo podman:10000:65536 > /etc/subgid
+sh-5.0# su - podman
+
+[podman@podman-8-c5qp7 ~]$ buildah version
+Version:         1.14.9
+Go Version:      go1.14.2
+Image Spec:      1.0.1-dev
+Runtime Spec:    1.0.1-dev
+CNI Spec:        0.4.0
+libcni Version:  
+image Version:   5.4.3
+Git Commit:      
+Built:           Thu Jan  1 00:00:00 1970
+OS/Arch:         linux/amd64
+
+[podman@podman-8-c5qp7 ~]$ buildah --storage-driver=vfs from docker.io/library/alpine
+Getting image source signatures
+Copying blob df20fa9351a1 done  
+Copying config a24bb40132 done  
+Writing manifest to image destination
+Storing signatures
+alpine-working-container
+
+[podman@podman-8-c5qp7 ~]$ buildah --storage-driver=vfs run --isolation chroot alpine-working-container ls /
+buildah --storage-driver=vfs run --isolation chroot alpine-working-container ls /
+bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbin   srv    sys    tmp    usr    var
+````
+
+So it actually works!
+
+Which leads to the end goal - building a new image from inside OpenShift:
+
+````
+$ buildah --storage-driver=vfs bud /home/Containerfile.openshift
+STEP 1: FROM fedora:33
+Getting image source signatures
+Copying blob 36df5217b961 done  
+Copying config 1cac645b74 done  
+Writing manifest to image destination
+Storing signatures
+STEP 2: MAINTAINER jskov@jyskebank.dk
+STEP 3: LABEL os.updated="2020.06.18"
+STEP 4: RUN dnf update -y
+Fedora 33 openh264 (From Cisco) - x86_64        
+....
+Installed:
+  acl-2.2.53-6.fc33.x86_64                            attr-2.4.48-9.fc33.x86_64                                     buildah-1.15.0-0.67.dev.git2c46b4b.fc33.x86_64                    catatonit-0.1.5-2.fc33.x86_64                               
+  conmon-2:2.0.19-0.2.dev.gitab8f5e5.fc33.x86_64      container-selinux-2:2.137.0-2.dev.git6b721da.fc33.noarch      containernetworking-plugins-0.8.6-5.1.git28773dc.fc33.x86_64      containers-common-1:1.0.1-16.dev.git091f924.fc33.x86_64     
+  criu-3.14-5.fc33.x86_64                             crun-0.14-1.fc33.x86_64                                       cryptsetup-libs-2.3.3-1.fc33.x86_64                               dbus-1:1.12.20-1.fc33.x86_64                                
+  dbus-broker-23-2.fc33.x86_64                        dbus-common-1:1.12.20-1.fc33.noarch                           device-mapper-1.02.171-2.fc33.x86_64                              device-mapper-libs-1.02.171-2.fc33.x86_64                   
+  diffutils-3.7-4.fc32.x86_64                         fuse-common-3.9.2-1.fc33.x86_64                               fuse-overlayfs-1.1.0-6.dev.git50ab2c2.fc33.x86_64                 fuse3-3.9.2-1.fc33.x86_64                                   
+  fuse3-libs-3.9.2-1.fc33.x86_64                      hwdata-0.337-1.fc33.noarch                                    iptables-1.8.5-1.fc33.x86_64                                      iptables-libs-1.8.5-1.fc33.x86_64                           
+  jansson-2.12-5.fc32.x86_64                          kmod-27-2.fc33.x86_64                                         kmod-libs-27-2.fc33.x86_64                                        libargon2-20171227-4.fc32.x86_64                            
+  libbsd-0.10.0-2.fc32.x86_64                         libibverbs-30.0-4.fc33.x86_64                                 libmnl-1.0.4-11.fc32.x86_64                                       libnet-1.1.6-19.fc32.x86_64                                 
+  libnetfilter_conntrack-1.0.7-4.fc32.x86_64          libnfnetlink-1.0.1-17.fc32.x86_64                             libnftnl-1.1.7-1.fc33.x86_64                                      libnl3-3.5.0-3.fc33.x86_64                                  
+  libpcap-14:1.9.1-4.fc33.x86_64                      libseccomp-2.4.2-3.fc32.x86_64                                libselinux-utils-3.0-5.fc33.x86_64                                libslirp-4.3.0-1.fc33.x86_64                                
+  libxkbcommon-0.10.0-2.fc32.x86_64                   nftables-1:0.9.3-4.fc33.x86_64                                pciutils-3.6.4-1.fc33.x86_64                                      pciutils-libs-3.6.4-1.fc33.x86_64                           
+  podman-2:2.1.0-0.48.dev.gitb9d48a9.fc33.x86_64      podman-plugins-2:2.1.0-0.48.dev.gitb9d48a9.fc33.x86_64        policycoreutils-3.0-4.fc33.x86_64                                 protobuf-c-1.3.3-2.fc33.x86_64                              
+  qrencode-libs-4.0.2-5.fc32.x86_64                   rdma-core-30.0-4.fc33.x86_64                                  rpm-plugin-selinux-4.16.0-0.beta3.2.fc33.x86_64                   runc-2:1.0.0-254.dev.git3cb1909.fc33.x86_64                 
+  selinux-policy-3.14.6-17.fc33.noarch                selinux-policy-targeted-3.14.6-17.fc33.noarch                 slirp4netns-1.1.1-6.dev.gitdd4af4f.fc33.x86_64                    systemd-245.6-2.fc33.x86_64                                 
+  systemd-pam-245.6-2.fc33.x86_64                     systemd-rpm-macros-245.6-2.fc33.noarch                        xkeyboard-config-2.30-2.fc33.noarch                               yajl-2.1.0-14.fc32.x86_64                                   
+
+Complete!
+STEP 6: RUN mkdir -p /home  && chmod a+rwx /home  && touch /etc/subgid /etc/subuid  && chmod g=u /etc/subgid /etc/subuid /etc/passwd
+STEP 7: ENV HOME=/home
+STEP 8: ENV USER=builder
+STEP 9: WORKDIR $HOME
+STEP 10: ADD init.sh $HOME/
+STEP 11: CMD ["python3", "-m", "http.server"]
+STEP 12: COMMIT
+Getting image source signatures
+Copying blob d734fbc798d2 skipped: already exists  
+Copying blob f670de48f929 done  
+Copying config 595c98c1ff done  
+Writing manifest to image destination
+Storing signatures
+--> 595c98c1ff1
+595c98c1ff1b532e6e0cd1dc638288b6136d59af79686d24f5ff0ee588033004
+````
+
+Yes!
+
+
+### podman chroot and VFS
+
+It still fails with Podman though.
+
+````
+sh-5.0# echo podman:10000:65536 > /etc/subuid
+sh-5.0# echo podman:10000:65536 > /etc/subgid
+sh-5.0# su - podman
+
+podman~$ export BUILDAH_ISOLATION=chroot
+
+podman~$ podman --storage-driver=vfs pull docker.io/library/alpine
+podman~$ podman --storage-driver=vfs --log-level debug run -it docker.io/library/alpine /bin/sh -c "echo 'hello'"
+DEBU[0000] Ignoring lipod.conf EventsLogger setting "journald". Use containers.conf if you want to change this setting and remove libpod.conf files. 
+DEBU[0000] Reading configuration file "/usr/share/containers/containers.conf" 
+DEBU[0000] Merged system config "/usr/share/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_
+SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  private k8s-file -1 slirp4netns false 2048 private /usr/share/cont
+ainers/seccomp.json 65536k private host 65536} {false systemd [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/s
+bin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libex
+ec/podman/catatonit shm   false 2048 runc map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/
+kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc
+ /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes}
+ {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Reading configuration file "/etc/containers/containers.conf" 
+DEBU[0000] Merged system config "/etc/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID
+ CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  host k8s-file -1 host false 2048 private /usr/share/containers/seccomp.j
+son 65536k host host 65536} {false cgroupfs [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/lo
+cal/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatoni
+t shm   false 2048 crun map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/
+local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-syst
+em/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes} {[/usr/libexec/cn
+i /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Using conmon: "/usr/bin/conmon"              
+DEBU[0000] Initializing boltdb state at /home/podman/.local/share/containers/storage/libpod/bolt_state.db 
+DEBU[0000] Using graph driver vfs                       
+DEBU[0000] Using graph root /home/podman/.local/share/containers/storage 
+DEBU[0000] Using run root /tmp/run-1000/containers      
+DEBU[0000] Using static dir /home/podman/.local/share/containers/storage/libpod 
+DEBU[0000] Using tmp dir /tmp/run-1000/libpod/tmp       
+DEBU[0000] Using volume path /home/podman/.local/share/containers/storage/volumes 
+DEBU[0000] Set libpod namespace to ""                   
+DEBU[0000] Not configuring container store              
+DEBU[0000] Initializing event backend file              
+DEBU[0000] using runtime "/usr/bin/runc"                
+DEBU[0000] using runtime "/usr/bin/crun"                
+WARN[0000] Error initializing configured OCI runtime kata: no valid executable found for OCI runtime kata: invalid argument 
+DEBU[0000] Ignoring lipod.conf EventsLogger setting "journald". Use containers.conf if you want to change this setting and remove libpod.conf files. 
+DEBU[0000] Reading configuration file "/usr/share/containers/containers.conf" 
+DEBU[0000] Merged system config "/usr/share/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_
+SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  private k8s-file -1 slirp4netns false 2048 private /usr/share/cont
+ainers/seccomp.json 65536k private host 65536} {false systemd [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/s
+bin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libex
+ec/podman/catatonit shm   false 2048 runc map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/
+kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc
+ /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes}
+ {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Reading configuration file "/etc/containers/containers.conf" 
+DEBU[0000] Merged system config "/etc/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  host k8s-file -1 host false 2048 private /usr/share/containers/seccomp.json 65536k host host 65536} {false cgroupfs [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatonit shm   false 2048 crun map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes} {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Using conmon: "/usr/bin/conmon"              
+DEBU[0000] Initializing boltdb state at /home/podman/.local/share/containers/storage/libpod/bolt_state.db 
+DEBU[0000] Using graph driver vfs                       
+DEBU[0000] Using graph root /home/podman/.local/share/containers/storage 
+DEBU[0000] Using run root /tmp/run-1000/containers      
+DEBU[0000] Using static dir /home/podman/.local/share/containers/storage/libpod 
+DEBU[0000] Using tmp dir /tmp/run-1000/libpod/tmp       
+DEBU[0000] Using volume path /home/podman/.local/share/containers/storage/volumes 
+DEBU[0000] Set libpod namespace to ""                   
+DEBU[0000] [graphdriver] trying provided driver "vfs"   
+DEBU[0000] Initializing event backend file              
+DEBU[0000] using runtime "/usr/bin/runc"                
+DEBU[0000] using runtime "/usr/bin/crun"                
+WARN[0000] Error initializing configured OCI runtime kata: no valid executable found for OCI runtime kata: invalid argument 
+WARN[0000] Failed to detect the owner for the current cgroup: stat /sys/fs/cgroup/systemd/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod83dfd939_5abc_4d57_b52c_808fa438046a.slice/crio-84f3e4777221de6bab485123d7be8142261928558dd3f0b5d788a8215b4046b0.scope: no such file or directory 
+DEBU[0000] Failed to add podman to systemd sandbox cgroup: exec: "dbus-launch": executable file not found in $PATH 
+INFO[0000] running as rootless                          
+DEBU[0000] Ignoring lipod.conf EventsLogger setting "journald". Use containers.conf if you want to change this setting and remove libpod.conf files. 
+DEBU[0000] Reading configuration file "/usr/share/containers/containers.conf" 
+DEBU[0000] Merged system config "/usr/share/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  private k8s-file -1 slirp4netns false 2048 private /usr/share/containers/seccomp.json 65536k private host 65536} {false systemd [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatonit shm   false 2048 runc map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes} {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Reading configuration file "/etc/containers/containers.conf" 
+DEBU[0000] Merged system config "/etc/containers/containers.conf": &{{[] [] container-default [] host [CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_KILL CAP_MKNOD CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_CHROOT] [] [nproc=1048576:1048576]  [] [] [] false [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] false false false  host k8s-file -1 host false 2048 private /usr/share/containers/seccomp.json 65536k host host 65536} {false cgroupfs [PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin] [/usr/libexec/podman/conmon /usr/local/libexec/podman/conmon /usr/local/lib/podman/conmon /usr/bin/conmon /usr/sbin/conmon /usr/local/bin/conmon /usr/local/sbin/conmon /run/current-system/sw/bin/conmon] ctrl-p,ctrl-q true /tmp/run-1000/libpod/tmp/events/events.log file [/usr/share/containers/oci/hooks.d] docker:// /pause k8s.gcr.io/pause:3.2 /usr/libexec/podman/catatonit shm   false 2048 crun map[crun:[/usr/bin/crun /usr/sbin/crun /usr/local/bin/crun /usr/local/sbin/crun /sbin/crun /bin/crun /run/current-system/sw/bin/crun] kata:[/usr/bin/kata-runtime /usr/sbin/kata-runtime /usr/local/bin/kata-runtime /usr/local/sbin/kata-runtime /sbin/kata-runtime /bin/kata-runtime /usr/bin/kata-qemu /usr/bin/kata-fc] runc:[/usr/bin/runc /usr/sbin/runc /usr/local/bin/runc /usr/local/sbin/runc /sbin/runc /bin/runc /usr/lib/cri-o-runc/sbin/runc /run/current-system/sw/bin/runc]] missing [] [crun runc] [crun] {false false false true true true}  false 3 /home/podman/.local/share/containers/storage/libpod 10 /tmp/run-1000/libpod/tmp /home/podman/.local/share/containers/storage/volumes} {[/usr/libexec/cni /usr/lib/cni /usr/local/lib/cni /opt/cni/bin] podman /etc/cni/net.d/}} 
+DEBU[0000] Using conmon: "/usr/bin/conmon"              
+DEBU[0000] Initializing boltdb state at /home/podman/.local/share/containers/storage/libpod/bolt_state.db 
+DEBU[0000] Using graph driver vfs                       
+DEBU[0000] Using graph root /home/podman/.local/share/containers/storage 
+DEBU[0000] Using run root /tmp/run-1000/containers      
+DEBU[0000] Using static dir /home/podman/.local/share/containers/storage/libpod 
+DEBU[0000] Using tmp dir /tmp/run-1000/libpod/tmp       
+DEBU[0000] Using volume path /home/podman/.local/share/containers/storage/volumes 
+DEBU[0000] Set libpod namespace to ""                   
+DEBU[0000] Initializing event backend file              
+DEBU[0000] using runtime "/usr/bin/runc"                
+DEBU[0000] using runtime "/usr/bin/crun"                
+WARN[0000] Error initializing configured OCI runtime kata: no valid executable found for OCI runtime kata: invalid argument 
+DEBU[0000] parsed reference into "[vfs@/home/podman/.local/share/containers/storage+/tmp/run-1000/containers]docker.io/library/alpine:latest" 
+DEBU[0000] parsed reference into "[vfs@/home/podman/.local/share/containers/storage+/tmp/run-1000/containers]@a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e" 
+DEBU[0000] [graphdriver] trying provided driver "vfs"   
+DEBU[0000] exporting opaque data as blob "sha256:a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e" 
+DEBU[0000] Using host netmode                           
+DEBU[0000] Loading seccomp profile from "/usr/share/containers/seccomp.json" 
+DEBU[0000] created OCI spec and options for new container 
+DEBU[0000] Allocated lock 1 for container 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 
+DEBU[0000] parsed reference into "[vfs@/home/podman/.local/share/containers/storage+/tmp/run-1000/containers]@a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e" 
+DEBU[0000] exporting opaque data as blob "sha256:a24bb4013296f61e89ba57005a7b3e52274d8edd3ae2077d04395f806b63d83e" 
+DEBU[0000] created container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" 
+DEBU[0000] container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" has work directory "/home/podman/.local/share/containers/storage/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata" 
+DEBU[0000] container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" has run directory "/tmp/run-1000/containers/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata" 
+DEBU[0000] New container created "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" 
+DEBU[0000] container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" has CgroupParent "/libpod_parent/libpod-17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" 
+DEBU[0000] Handling terminal attach                     
+DEBU[0000] mounted container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" at "/home/podman/.local/share/containers/storage/vfs/dir/79f42c390782d4390e493f90f1a636acfacf538975868c000ef8446efab4130a" 
+DEBU[0000] Created root filesystem for container 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 at /home/podman/.local/share/containers/storage/vfs/dir/79f42c390782d4390e493f90f1a636acfacf538975868c000ef8446efab4130a 
+DEBU[0000] /etc/system-fips does not exist on host, not mounting FIPS mode secret 
+DEBU[0000] reading hooks from /usr/share/containers/oci/hooks.d 
+DEBU[0000] Created OCI spec for container 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 at /home/podman/.local/share/containers/storage/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata/config.json 
+DEBU[0000] /usr/bin/conmon messages will be logged to syslog 
+DEBU[0000] running conmon: /usr/bin/conmon               args="[--api-version 1 -c 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 -u 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 -r /usr/bin/crun -b /home/podman/.local/share/containers/storage/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata -p /tmp/run-1000/containers/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata/pidfile -l k8s-file:/home/podman/.local/share/containers/storage/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata/ctr.log --exit-dir /tmp/run-1000/libpod/tmp/exits --socket-dir-path /tmp/run-1000/libpod/tmp/socket --log-level debug --syslog -t --conmon-pidfile /tmp/run-1000/containers/vfs-containers/17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4/userdata/conmon.pid --exit-command /usr/bin/podman --exit-command-arg --root --exit-command-arg /home/podman/.local/share/containers/storage --exit-command-arg --runroot --exit-command-arg /tmp/run-1000/containers --exit-command-arg --log-level --exit-command-arg debug --exit-command-arg --cgroup-manager --exit-command-arg cgroupfs --exit-command-arg --tmpdir --exit-command-arg /tmp/run-1000/libpod/tmp --exit-command-arg --runtime --exit-command-arg crun --exit-command-arg --storage-driver --exit-command-arg vfs --exit-command-arg --events-backend --exit-command-arg file --exit-command-arg container --exit-command-arg cleanup --exit-command-arg 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4]"
+WARN[0000] Failed to add conmon to cgroupfs sandbox cgroup: error creating cgroup for cpuset: mkdir /sys/fs/cgroup/cpuset/libpod_parent: read-only file system 
+DEBU[0000] Received: -1                                 
+DEBU[0000] Cleaning up container 17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4 
+DEBU[0000] Network is already cleaned up, skipping...   
+DEBU[0000] unmounted container "17a17cfe9bccd21360e1dae3a6ed709a2ffecb84df1ac55bde8e22cef0229ca4" 
+DEBU[0000] ExitCode msg: "mount `proc` to '/home/podman/.local/share/containers/storage/vfs/dir/79f42c390782d4390e493f90f1a636acfacf538975868c000ef8446efab4130a/proc': permission denied: oci runtime permission denied error" 
+ERRO[0000] mount `proc` to '/home/podman/.local/share/containers/storage/vfs/dir/79f42c390782d4390e493f90f1a636acfacf538975868c000ef8446efab4130a/proc': Permission denied: OCI runtime permission denied error 
 ````
